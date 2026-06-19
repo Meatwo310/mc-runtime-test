@@ -3,9 +3,7 @@ package me.earth.mc_runtime_test.mixin;
 import me.earth.mc_runtime_test.McGameTestRunner;
 import me.earth.mc_runtime_test.McRuntimeTest;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.DeathScreen;
-import net.minecraft.client.gui.screens.ErrorScreen;
-import net.minecraft.client.gui.screens.Overlay;
+import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.worldselection.CreateWorldScreen;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -32,7 +30,7 @@ public abstract class MixinMinecraft {
     @Shadow @Final private static Logger LOGGER;
     @Shadow @Nullable public LocalPlayer player;
     @Shadow @Nullable public ClientLevel level;
-    @Shadow @Nullable public Screen screen;
+    @Shadow @Final public Gui gui;
     @Shadow @Nullable private IntegratedServer singleplayerServer;
     @Shadow private volatile boolean running;
 
@@ -44,27 +42,7 @@ public abstract class MixinMinecraft {
     private MultipleTestTracker mcRuntimeTest$testTracker = null;
 
     @Shadow
-    public abstract @Nullable Overlay getOverlay();
-
-    @Shadow
-    public abstract void setScreen(@Nullable Screen screen);
-
-    @Shadow
     public abstract void disconnectWithProgressScreen();
-
-    @Inject(method = "setScreen", at = @At("HEAD"))
-    private void setScreenHook(Screen screen, CallbackInfo ci) {
-        if (!McRuntimeTest.screenHook()) {
-            return;
-        }
-
-        if (screen instanceof ErrorScreen) {
-            mcRuntime$stop();
-            throw new RuntimeException("Error Screen " + screen);
-        } else if (screen instanceof DeathScreen && player != null) {
-            player.respawn();
-        }
-    }
 
     @Inject(method = "tick", at = @At("HEAD"))
     private void tickHook(CallbackInfo ci) throws ExecutionException, InterruptedException, TimeoutException {
@@ -72,8 +50,9 @@ public abstract class MixinMinecraft {
             return;
         }
 
-        if (getOverlay() == null) {
-            if (!mcRuntimeTest$startedLoadingSPWorld && getOverlay() == null) {
+        Screen screen = gui.screen();
+        if (gui.overlay() == null) {
+            if (!mcRuntimeTest$startedLoadingSPWorld) {
                 CreateWorldScreen.openFresh(Minecraft.class.cast(this), null);
                 mcRuntimeTest$startedLoadingSPWorld = true;
             } else if (!mcRuntimeTest$worldCreationStarted && screen instanceof ICreateWorldScreen createWorldScreen) {
@@ -121,7 +100,7 @@ public abstract class MixinMinecraft {
                 LOGGER.info("Screen not yet null: " + screen);
                 if (McRuntimeTest.CLOSE_ANY_SCREEN || McRuntimeTest.CLOSE_CREATE_WORLD_SCREEN && screen instanceof CreateWorldScreen) {
                     LOGGER.info("Closing screen");
-                    setScreen(null);
+                    gui.setScreen(null);
                 }
             }
         } else {
