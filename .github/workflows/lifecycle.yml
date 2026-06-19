@@ -134,6 +134,8 @@ jobs:
           
           additional_runs = []
           for item in run_matrix['version']:
+            if not item.get('non_xvfb', True):
+              continue
             #runners = [ ('blacksmith-2vcpu-ubuntu-2204', 'blacksmith') ] # also add non-xvfb runs for ubuntu
             runners = [ ('ubuntu-latest', 'github') ] # also add non-xvfb runs for ubuntu
             if len(additional_runs) < 9: # add other runners only for the latest version * 3 modloaders * 3 runners
